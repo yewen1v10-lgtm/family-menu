@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>家庭点菜</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif;background:#f5f5f7;min-height:100vh;color:#1d1d1f}
+.app{max-width:480px;margin:0 auto;padding-bottom:80px}
+.topbar{background:#fff;border-bottom:1px solid #e5e5e5;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+.topbar h1{font-size:17px;font-weight:600}
+.user-pills{display:flex;gap:6px}
+.pill{padding:5px 12px;border-radius:20px;font-size:13px;cursor:pointer;border:1px solid #d1d1d6;color:#666;background:#fff;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.pill.active{background:#5856d6;border-color:#5856d6;color:#fff}
+.tabs{display:flex;background:#fff;border-bottom:1px solid #e5e5e5;padding:0 16px;position:sticky;top:53px;z-index:9}
+.tab{padding:12px 14px;font-size:14px;cursor:pointer;border-bottom:2px solid transparent;color:#888;transition:all .15s;-webkit-tap-highlight-color:transparent}
+.tab.active{color:#1d1d1f;border-bottom-color:#5856d6;font-weight:600}
+.section{padding:16px}
+.card{background:#fff;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.meal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.meal-label{font-size:14px;font-weight:600;color:#1d1d1f}
+.meal-badge{font-size:11px;padding:3px 9px;border-radius:12px;background:#e8f5e9;color:#2e7d32;font-weight:500}
+.dish-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f0f0f0}
+.dish-row:last-child{border-bottom:none;padding-bottom:0}
+.dish-name{flex:1;font-size:14px;color:#1d1d1f}
+.dish-cat{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;white-space:nowrap}
+.cat-荤炒{background:#fdecea;color:#c62828}
+.cat-炖煮{background:#ede7f6;color:#4527a0}
+.cat-素炒{background:#e8f5e9;color:#2e7d32}
+.cat-凉拌{background:#e3f2fd;color:#1565c0}
+.cat-汤{background:#fff8e1;color:#e65100}
+.vote-btns{display:flex;gap:6px;align-items:center}
+.vote-btn{width:32px;height:32px;border-radius:50%;border:1px solid #d1d1d6;background:#fff;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s;-webkit-tap-highlight-color:transparent;flex-shrink:0}
+.vote-btn:active{transform:scale(0.92)}
+.vote-btn.voted{background:#ede7f6;border-color:#9c88d4;color:#5856d6}
+.vote-btn:disabled{opacity:0.3;cursor:not-allowed}
+.vote-count{font-size:13px;font-weight:600;min-width:18px;text-align:center;color:#1d1d1f}
+.result-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f0f0f0}
+.result-row:last-child{border-bottom:none}
+.result-name{flex:1;font-size:14px}
+.result-bar-wrap{width:70px;height:6px;background:#f0f0f0;border-radius:3px;overflow:hidden;flex-shrink:0}
+.result-bar{height:100%;background:#5856d6;border-radius:3px;transition:width .4s}
+.result-votes{font-size:12px;color:#888;min-width:50px;text-align:right}
+.winner-badge{font-size:11px;padding:2px 8px;border-radius:10px;background:#e8f5e9;color:#2e7d32;font-weight:500;white-space:nowrap}
+.empty{text-align:center;padding:28px 16px;color:#aaa;font-size:14px}
+.add-row{display:flex;gap:8px;margin-bottom:14px}
+.add-row input,.add-row select{flex:1;padding:9px 11px;border:1px solid #d1d1d6;border-radius:10px;font-size:14px;background:#fff;color:#1d1d1f;outline:none;min-width:0}
+.add-row input:focus,.add-row select:focus{border-color:#5856d6}
+.add-row button{padding:9px 14px;border-radius:10px;border:1px solid #d1d1d6;background:#fff;font-size:14px;cursor:pointer;color:#1d1d1f;white-space:nowrap}
+.add-row button:active{background:#f5f5f7}
+.del-btn{padding:4px 8px;border:none;background:none;color:#ccc;cursor:pointer;font-size:18px;border-radius:6px;flex-shrink:0}
+.del-btn:active{color:#e53935;background:#fdecea}
+.section-title{font-size:13px;font-weight:600;color:#888;margin-bottom:10px;text-transform:uppercase;letter-spacing:.3px}
+.notice{font-size:12px;color:#aaa;text-align:center;padding:8px 0}
+.cat-group-title{font-size:12px;color:#888;margin:12px 0 6px;font-weight:600}
+.loading{text-align:center;padding:32px;color:#aaa;font-size:14px}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:100;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+.reset-btn{font-size:12px;color:#aaa;border:none;background:none;cursor:pointer;padding:4px 8px;border-radius:6px}
+.reset-btn:active{background:#f5f5f7}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <h1>家庭点菜</h1>
+    <div class="user-pills">
+      <div class="pill active" onclick="setUser('小龙')">小龙</div>
+      <div class="pill" onclick="setUser('小李')">小李</div>
+      <div class="pill" onclick="setUser('小郑')">小郑</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('vote')">今日投票</div>
+    <div class="tab" onclick="switchTab('result')">投票结果</div>
+    <div class="tab" onclick="switchTab('dishes')">菜谱库</div>
+  </div>
+
+  <div id="tab-vote" class="section">
+    <div class="card">
+      <div class="meal-header">
+        <span class="meal-label">🌤 中午</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="reset-btn" onclick="resetVotes('lunch')">重置</button>
+          <span class="meal-badge" id="lunch-badge">加载中</span>
+        </div>
+      </div>
+      <div id="lunch-list"><div class="loading">加载中…</div></div>
+    </div>
+    <div class="card">
+      <div class="meal-header">
+        <span class="meal-label">🌙 晚上</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="reset-btn" onclick="resetVotes('dinner')">重置</button>
+          <span class="meal-badge" id="dinner-badge">加载中</span>
+        </div>
+      </div>
+      <div id="dinner-list"><div class="loading">加载中…</div></div>
+    </div>
+    <p class="notice">每人每餐最多投3票 · 数据每10秒自动刷新</p>
+  </div>
+
+  <div id="tab-result" class="section" style="display:none">
+    <div class="card">
+      <div class="meal-header"><span class="meal-label">🌤 中午结果</span></div>
+      <div id="result-lunch"><div class="loading">加载中…</div></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="meal-header"><span class="meal-label">🌙 晚上结果</span></div>
+      <div id="result-dinner"><div class="loading">加载中…</div></div>
+    </div>
+  </div>
+
+  <div id="tab-dishes" class="section" style="display:none">
+    <div class="card">
+      <p class="section-title">添加菜品</p>
+      <div class="add-row">
+        <input id="new-dish" placeholder="菜名" onkeydown="if(event.key==='Enter')addDish()"/>
+        <select id="new-cat">
+          <option value="荤炒">荤炒</option>
+          <option value="炖煮">炖煮</option>
+          <option value="素炒">素炒</option>
+          <option value="凉拌">凉拌</option>
+          <option value="汤">汤</option>
+        </select>
+        <button onclick="addDish()">添加</button>
+      </div>
+      <div id="dish-library"><div class="loading">加载中…</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://kvllmzfazcoxfflrbqnx.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt2bGxtemZhemNveGZmbHJicW54Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5MzI4ODQsImV4cCI6MjA5MjUwODg4NH0.oKlkvjOHb9iJpFD0VTuaqZatQUai9IVFnZfNWJhgZNg';
+
+const headers = {
+  'apikey': SUPABASE_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_KEY,
+  'Content-Type': 'application/json',
+  'Prefer': 'return=representation'
+};
+
+async function api(path, options={}) {
+  const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+    headers, ...options
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(err);
+  }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+const CATS = ['荤炒','炖煮','素炒','凉拌','汤'];
+let currentUser = '小龙';
+let dishes = [];
+let votes = [];
+let currentTab = 'vote';
+let refreshTimer = null;
+
+function today() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+function setUser(u) {
+  currentUser = u;
+  document.querySelectorAll('.pill').forEach(p => p.classList.toggle('active', p.textContent === u));
+  renderVote();
+}
+
+function switchTab(t) {
+  currentTab = t;
+  ['vote','result','dishes'].forEach((x,i) => {
+    document.getElementById('tab-'+x).style.display = x===t ? 'block' : 'none';
+    document.querySelectorAll('.tab')[i].classList.toggle('active', x===t);
+  });
+  if(t==='result') renderResult();
+  if(t==='dishes') renderDishes();
+}
+
+async function loadAll() {
+  try {
+    [dishes, votes] = await Promise.all([
+      api('dishes?select=*&order=id'),
+      api('votes?select=*&vote_date=eq.' + today())
+    ]);
+    renderVote();
+    if(currentTab === 'result') renderResult();
+    if(currentTab === 'dishes') renderDishes();
+  } catch(e) {
+    showToast('加载失败，请检查网络');
+  }
+}
+
+function userVoteCount(meal) {
+  return votes.filter(v => v.meal === meal && v.username === currentUser).length;
+}
+
+function dishVotes(dishId, meal) {
+  return votes.filter(v => v.dish_id === dishId && v.meal === meal);
+}
+
+function hasVoted(dishId, meal) {
+  return votes.some(v => v.dish_id === dishId && v.meal === meal && v.username === currentUser);
+}
+
+function renderVote() {
+  ['lunch','dinner'].forEach(meal => {
+    const totalVotes = votes.filter(v => v.meal === meal).length;
+    document.getElementById(meal+'-badge').textContent = totalVotes > 0 ? totalVotes+'票' : '待投票';
+    const el = document.getElementById(meal+'-list');
+    const used = userVoteCount(meal);
+    el.innerHTML = '';
+    dishes.forEach(d => {
+      const voted = hasVoted(d.id, meal);
+      const dVotes = dishVotes(d.id, meal);
+      const canVote = voted || used < 3;
+      const voters = dVotes.map(v => v.username).join(' ');
+      const row = document.createElement('div');
+      row.className = 'dish-row';
+      row.innerHTML = `
+        <span class="dish-name">${d.name}</span>
+        <span class="dish-cat cat-${d.cat}">${d.cat}</span>
+        <div class="vote-btns">
+          <button class="vote-btn${voted?' voted':''}" onclick="toggleVote('${meal}',${d.id})" ${canVote?'':'disabled'}>
+            ${voted?'★':'☆'}
+          </button>
+          <span class="vote-count" title="${voters}">${dVotes.length||''}</span>
+        </div>`;
+      el.appendChild(row);
+    });
+  });
+}
+
+async function toggleVote(meal, dishId) {
+  const voted = hasVoted(dishId, meal);
+  if(!voted && userVoteCount(meal) >= 3) {
+    showToast('每餐最多投3票');
+    return;
+  }
+  try {
+    if(voted) {
+      await api(`votes?dish_id=eq.${dishId}&meal=eq.${meal}&vote_date=eq.${today()}&username=eq.${currentUser}`, {
+        method: 'DELETE'
+      });
+      votes = votes.filter(v => !(v.dish_id===dishId && v.meal===meal && v.username===currentUser));
+    } else {
+      const result = await api('votes', {
+        method: 'POST',
+        body: JSON.stringify({dish_id:dishId, meal, vote_date:today(), username:currentUser})
+      });
+      if(result && result[0]) votes.push(result[0]);
+    }
+    renderVote();
+    if(currentTab==='result') renderResult();
+  } catch(e) {
+    showToast('操作失败，请重试');
+  }
+}
+
+async function resetVotes(meal) {
+  if(!confirm(`确定重置今天${meal==='lunch'?'中午':'晚上'}的所有投票？`)) return;
+  try {
+    await api(`votes?meal=eq.${meal}&vote_date=eq.${today()}`, {method:'DELETE'});
+    votes = votes.filter(v => v.meal !== meal);
+    renderVote();
+    if(currentTab==='result') renderResult();
+    showToast('已重置');
+  } catch(e) {
+    showToast('重置失败');
+  }
+}
+
+function renderResult() {
+  ['lunch','dinner'].forEach(meal => {
+    const el = document.getElementById('result-'+meal);
+    const scored = dishes.map(d => {
+      const dv = dishVotes(d.id, meal);
+      return {name:d.name, count:dv.length, voters:dv.map(v=>v.username)};
+    }).filter(d => d.count > 0).sort((a,b) => b.count-a.count);
+    if(!scored.length){ el.innerHTML='<p class="empty">暂无投票</p>'; return; }
+    const max = scored[0].count;
+    el.innerHTML = scored.map((d,i) => `
+      <div class="result-row">
+        <span class="result-name">${d.name}</span>
+        ${i===0?'<span class="winner-badge">第一</span>':''}
+        <div class="result-bar-wrap"><div class="result-bar" style="width:${Math.round(d.count/max*100)}%"></div></div>
+        <span class="result-votes">${d.voters.join(' ')} (${d.count})</span>
+      </div>`).join('');
+  });
+}
+
+function renderDishes() {
+  const el = document.getElementById('dish-library');
+  el.innerHTML = '';
+  CATS.forEach(cat => {
+    const group = dishes.filter(d => d.cat === cat);
+    if(!group.length) return;
+    const sec = document.createElement('div');
+    sec.innerHTML = `<p class="cat-group-title">${cat} (${group.length})</p>`;
+    group.forEach(d => {
+      const row = document.createElement('div');
+      row.className = 'dish-row';
+      row.innerHTML = `<span class="dish-name">${d.name}</span><button class="del-btn" onclick="delDish(${d.id},'${d.name}')">×</button>`;
+      sec.appendChild(row);
+    });
+    el.appendChild(sec);
+  });
+}
+
+async function addDish() {
+  const name = document.getElementById('new-dish').value.trim();
+  const cat = document.getElementById('new-cat').value;
+  if(!name) return;
+  if(dishes.find(d => d.name === name)) { showToast('菜谱里已有这道菜'); return; }
+  try {
+    const result = await api('dishes', {
+      method: 'POST',
+      body: JSON.stringify({name, cat})
+    });
+    if(result && result[0]) dishes.push(result[0]);
+    document.getElementById('new-dish').value = '';
+    renderDishes();
+    showToast('添加成功');
+  } catch(e) {
+    showToast('添加失败');
+  }
+}
+
+async function delDish(id, name) {
+  if(!confirm(`删除「${name}」？`)) return;
+  try {
+    await api(`dishes?id=eq.${id}`, {method:'DELETE'});
+    dishes = dishes.filter(d => d.id !== id);
+    votes = votes.filter(v => v.dish_id !== id);
+    renderDishes();
+    showToast('已删除');
+  } catch(e) {
+    showToast('删除失败');
+  }
+}
+
+// 自动刷新（10秒）
+function startRefresh() {
+  refreshTimer = setInterval(() => {
+    loadAll();
+  }, 10000);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden) {
+    clearInterval(refreshTimer);
+  } else {
+    loadAll();
+    startRefresh();
+  }
+});
+
+loadAll();
+startRefresh();
+</script>
+</body>
+</html>
