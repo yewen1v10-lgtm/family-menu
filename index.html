@@ -59,6 +59,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue'
 .toast.show{opacity:1}
 .reset-btn{font-size:12px;color:#aaa;border:none;background:none;cursor:pointer;padding:4px 8px;border-radius:6px}
 .reset-btn:active{background:#f5f5f7}
+.cat-header{display:flex;align-items:center;justify-content:space-between;padding:10px 0;cursor:pointer;border-bottom:1px solid #f0f0f0;-webkit-tap-highlight-color:transparent}
+.cat-header:first-child{padding-top:0}
+.cat-arrow{font-size:12px;color:#aaa}
 </style>
 </head>
 <body>
@@ -75,6 +78,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue'
   <div class="tabs">
     <div class="tab active" onclick="switchTab('vote')">今日投票</div>
     <div class="tab" onclick="switchTab('result')">投票结果</div>
+    <div class="tab" onclick="switchTab('history')">历史</div>
     <div class="tab" onclick="switchTab('dishes')">菜谱库</div>
   </div>
 
@@ -113,6 +117,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue'
     </div>
   </div>
 
+  <div id="tab-history" class="section" style="display:none">
+    <div class="card">
+      <div class="meal-header">
+        <span class="meal-label">📅 选择日期</span>
+      </div>
+      <input type="date" id="history-date" style="width:100%;padding:9px 11px;border:1px solid #d1d1d6;border-radius:10px;font-size:14px;color:#1d1d1f;outline:none;margin-bottom:12px" onchange="loadHistory()"/>
+    </div>
+    <div class="card" id="history-lunch-card" style="display:none">
+      <div class="meal-header"><span class="meal-label">🌤 中午</span></div>
+      <div id="history-lunch"></div>
+    </div>
+    <div class="card" id="history-dinner-card" style="display:none;margin-top:12px">
+      <div class="meal-header"><span class="meal-label">🌙 晚上</span></div>
+      <div id="history-dinner"></div>
+    </div>
+    <p class="empty" id="history-empty" style="display:none">该日期暂无投票记录</p>
+  </div>
+
   <div id="tab-dishes" class="section" style="display:none">
     <div class="card">
       <p class="section-title">添加菜品</p>
@@ -137,6 +159,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue'
 <script>
 const SUPABASE_URL = 'https://supabase-proxy.yewen1v10.workers.dev';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZiaWtzYnJtanJzYWVxYm15aXl6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5OTg0MDgsImV4cCI6MjA5MjU3NDQwOH0.ytMnnhbtxMhbZkMWTSmpIerb8bx0PobU8biymnsUCek';
+
 const headers = {
   'apikey': SUPABASE_KEY,
   'Authorization': 'Bearer ' + SUPABASE_KEY,
@@ -182,12 +205,17 @@ function setUser(u) {
 
 function switchTab(t) {
   currentTab = t;
-  ['vote','result','dishes'].forEach((x,i) => {
+  ['vote','result','history','dishes'].forEach((x,i) => {
     document.getElementById('tab-'+x).style.display = x===t ? 'block' : 'none';
     document.querySelectorAll('.tab')[i].classList.toggle('active', x===t);
   });
   if(t==='result') renderResult();
   if(t==='dishes') renderDishes();
+  if(t==='history') {
+    const d = document.getElementById('history-date');
+    if(!d.value) d.value = today();
+    loadHistory();
+  }
 }
 
 async function loadAll() {
@@ -223,25 +251,56 @@ function renderVote() {
     const el = document.getElementById(meal+'-list');
     const used = userVoteCount(meal);
     el.innerHTML = '';
-    dishes.forEach(d => {
-      const voted = hasVoted(d.id, meal);
-      const dVotes = dishVotes(d.id, meal);
-      const canVote = voted || used < 3;
-      const voters = dVotes.map(v => v.username).join(' ');
-      const row = document.createElement('div');
-      row.className = 'dish-row';
-      row.innerHTML = `
-        <span class="dish-name">${d.name}</span>
-        <span class="dish-cat cat-${d.cat}">${d.cat}</span>
-        <div class="vote-btns">
-          <button class="vote-btn${voted?' voted':''}" onclick="toggleVote('${meal}',${d.id})" ${canVote?'':'disabled'}>
-            ${voted?'★':'☆'}
-          </button>
-          <span class="vote-count" title="${voters}">${dVotes.length||''}</span>
-        </div>`;
-      el.appendChild(row);
+    CATS.forEach(cat => {
+      const catDishes = dishes.filter(d => d.cat === cat);
+      if(!catDishes.length) return;
+      const catVotes = catDishes.reduce((s,d) => s + dishVotes(d.id, meal).length, 0);
+      const catId = `${meal}-cat-${cat}`;
+      const header = document.createElement('div');
+      header.className = 'cat-header';
+      header.innerHTML = `
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="dish-cat cat-${cat}">${cat}</span>
+          <span style="font-size:12px;color:#aaa">${catDishes.length}道</span>
+          ${catVotes>0?`<span style="font-size:12px;color:#5856d6;font-weight:600">${catVotes}票</span>`:''}
+        </div>
+        <span class="cat-arrow" id="arrow-${catId}">▾</span>`;
+      header.onclick = () => toggleCat(catId);
+      el.appendChild(header);
+      const group = document.createElement('div');
+      group.id = catId;
+      catDishes.forEach(d => {
+        const voted = hasVoted(d.id, meal);
+        const dVotes = dishVotes(d.id, meal);
+        const canVote = voted || used < 3;
+        const voters = dVotes.map(v => v.username).join(' ');
+        const row = document.createElement('div');
+        row.className = 'dish-row';
+        row.innerHTML = `
+          <span class="dish-name">${d.name}</span>
+          <div class="vote-btns">
+            <button class="vote-btn${voted?' voted':''}" onclick="toggleVote('${meal}',${d.id})" ${canVote?'':'disabled'}>
+              ${voted?'★':'☆'}
+            </button>
+            <span class="vote-count" title="${voters}">${dVotes.length||''}</span>
+          </div>`;
+        group.appendChild(row);
+      });
+      el.appendChild(group);
     });
   });
+}
+
+function toggleCat(catId) {
+  const el = document.getElementById(catId);
+  const arrow = document.getElementById('arrow-'+catId);
+  if(el.style.display === 'none') {
+    el.style.display = 'block';
+    arrow.textContent = '▾';
+  } else {
+    el.style.display = 'none';
+    arrow.textContent = '▸';
+  }
 }
 
 async function toggleVote(meal, dishId) {
@@ -354,6 +413,44 @@ async function delDish(id, name) {
 
 function startRefresh() {
   refreshTimer = setInterval(() => { loadAll(); }, 10000);
+}
+
+async function loadHistory() {
+  const date = document.getElementById('history-date').value;
+  if(!date) return;
+  try {
+    const histVotes = await api('votes?select=*&vote_date=eq.' + date);
+    const lunchCard = document.getElementById('history-lunch-card');
+    const dinnerCard = document.getElementById('history-dinner-card');
+    const emptyEl = document.getElementById('history-empty');
+    if(!histVotes.length) {
+      lunchCard.style.display = 'none';
+      dinnerCard.style.display = 'none';
+      emptyEl.style.display = 'block';
+      return;
+    }
+    emptyEl.style.display = 'none';
+    ['lunch','dinner'].forEach(meal => {
+      const card = meal==='lunch' ? lunchCard : dinnerCard;
+      const el = document.getElementById('history-'+meal);
+      const scored = dishes.map(d => {
+        const dv = histVotes.filter(v => v.dish_id === d.id && v.meal === meal);
+        return {name:d.name, count:dv.length, voters:dv.map(v=>v.username)};
+      }).filter(d => d.count > 0).sort((a,b) => b.count-a.count);
+      if(!scored.length) { card.style.display='none'; return; }
+      card.style.display = 'block';
+      const max = scored[0].count;
+      el.innerHTML = scored.map((d,i) => `
+        <div class="result-row">
+          <span class="result-name">${d.name}</span>
+          ${i===0?'<span class="winner-badge">第一</span>':''}
+          <div class="result-bar-wrap"><div class="result-bar" style="width:${Math.round(d.count/max*100)}%"></div></div>
+          <span class="result-votes">${d.voters.join(' ')} (${d.count})</span>
+        </div>`).join('');
+    });
+  } catch(e) {
+    showToast('加载历史失败');
+  }
 }
 
 document.addEventListener('visibilitychange', () => {
