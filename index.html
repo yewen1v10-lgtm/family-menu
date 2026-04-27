@@ -250,12 +250,20 @@ function renderVote() {
     document.getElementById(meal+'-badge').textContent = totalVotes > 0 ? totalVotes+'票' : '待投票';
     const el = document.getElementById(meal+'-list');
     const used = userVoteCount(meal);
+    // 保存当前展开状态
+    const openCats = {};
+    CATS.forEach(cat => {
+      const catId = `${meal}-cat-${cat}`;
+      const existing = document.getElementById(catId);
+      if(existing) openCats[cat] = existing.style.display !== 'none';
+    });
     el.innerHTML = '';
     CATS.forEach(cat => {
       const catDishes = dishes.filter(d => d.cat === cat);
       if(!catDishes.length) return;
       const catVotes = catDishes.reduce((s,d) => s + dishVotes(d.id, meal).length, 0);
       const catId = `${meal}-cat-${cat}`;
+      const isOpen = openCats[cat] === true; // 只有明确展开过才保持展开
       const header = document.createElement('div');
       header.className = 'cat-header';
       header.innerHTML = `
@@ -264,13 +272,12 @@ function renderVote() {
           <span style="font-size:12px;color:#aaa">${catDishes.length}道</span>
           ${catVotes>0?`<span style="font-size:12px;color:#5856d6;font-weight:600">${catVotes}票</span>`:''}
         </div>
-        <span class="cat-arrow" id="arrow-${catId}">▸</span>`;
+        <span class="cat-arrow" id="arrow-${catId}">${isOpen?'▾':'▸'}</span>`;
       header.onclick = () => toggleCat(catId);
       el.appendChild(header);
       const group = document.createElement('div');
       group.id = catId;
-      group.style.display = 'none';
-      document.getElementById('arrow-'+catId) && (document.getElementById('arrow-'+catId).textContent = '▸');
+      group.style.display = isOpen ? 'block' : 'none';
       catDishes.forEach(d => {
         const voted = hasVoted(d.id, meal);
         const dVotes = dishVotes(d.id, meal);
